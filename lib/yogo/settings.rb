@@ -13,7 +13,7 @@ class Yogo::Settings
   property :name,   String, :key => true
   property :value,   String
   
-  DataMapper.setup(:yogo_settings_cache, 'sqlite3::memory:')
+  DataMapper.setup(:yogo_settings_cache, :adapter => :in_memory)
   repository(:yogo_settings_cache) { Yogo::Settings.auto_migrate! }
   
   self.auto_migrate! unless self.storage_exists?(:default)
