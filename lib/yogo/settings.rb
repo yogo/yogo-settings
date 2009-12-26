@@ -29,7 +29,11 @@ class Yogo::Settings
       store_cache(key, response.value) unless response.nil?
     end
 
-    response.value unless response.nil?
+    unless response.nil?
+      return true  if response.value.eql?('true')
+      return false if response.value.eql?('false')
+      return response.value 
+    end
   end
   
   def self.[]=(key,value)
