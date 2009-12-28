@@ -12,42 +12,43 @@ module Yogo
 
     # property :id,    Serial
     property :name,   String, :key => true
-    property :value,   String
+    property :value,   Object
   
-    @@default_settings = {}
-    @@loaded_defaults = false
+    @@cache = {}
+    # @@loaded_defaults = false
+    @@settings_files = []
     @@settings_setup = false
     
-  
-    def self.setup
-      begin
-          DataMapper.setup(:yogo_settings_cache, :adapter => :in_memory)
-          repository(:yogo_settings_cache) { self.auto_migrate! }
+    # Loads YAML files for the default settings to be used.
+    def self.load_defaults(*files)
+      files.each do |file|
+        @@settings_files << Dir.glob(file)
+      end
+      @@settings_files.flatten!
 
-          self.auto_migrate! unless self.storage_exists?(:default)
-          @@settings_setup = true
-      rescue
-        # NOOP!
-      end unless @@settings_setup
+      @@settings_files.each{ |file|
+        config = YAML.load_file(file)
+        @@cache.merge!(config) unless config == false
+      }
     end
   
+    
     def self.[](key)
+      key = key.to_s if key.is_a? Symbol
       self.setup unless @@settings_setup
       response = check_cache(key) 
       if response.nil?
         response = check_database(key)
-        response = check_defaults(key) if response.nil?
-        store_cache(key, response.value) unless response.nil?
+        store_cache(key, response) unless response.nil?
       end
 
       unless response.nil?
-        return true  if response.value.eql?('true')
-        return false if response.value.eql?('false')
-        return response.value 
+        return response 
       end
     end
   
     def self.[]=(key,value)
+      key = key.to_s if key.is_a? Symbol
       self.setup unless @@settings_setup
       self.store_cache(key,value)
       self.store_database(key,value)
@@ -57,38 +58,20 @@ module Yogo
   
     def self.check_cache(key)
       # puts "Checking cache for #{key}"
-      repository(:yogo_settings_cache) { self.get(key) }
-    end
-  
-    def self.check_defaults(key)
-      # puts "Checking defaults for #{key}"
-      key = key.to_s if key.is_a? Symbol
-      if !@@loaded_defaults
-        settings_files = Dir.glob(Rails.root.to_s+"/vendor/gems/**/config/settings.yml") # Gem settings
-        settings_files << Dir.glob(Rails.root.to_s+"/vendor/plugins/**/config/settings.yml") # plugin settings
-        settings_files << Dir.glob(Rails.root.to_s+"/config/settings.yml") # App settings
-        settings_files.flatten!
-    
-    
-        settings_files.each{ |file|
-          config = YAML.load_file(file)
-          @@default_settings.merge!(config) unless config == false
-        }
-
-        @@loaded_defaults = true
-      end
-
-      return self.new(:name => key, :value => @@default_settings[key]) if @@default_settings.has_key?(key)
+      # repository(:yogo_settings_cache) { self.get(key) }
+      @@cache[key] if @@cache.has_key?(key)
     end
   
     def self.check_database(key)   
       # puts "Checking database for #{key}"
-      repository(:default) { self.get(key) }
+      result = repository(:default) { self.get(key) }
+      return result.value unless result.nil?
     end
   
     def self.store_cache(key, value)
       # puts "Storing #{key} in cache"
-      self.store(key, value, :yogo_settings_cache)
+      # self.store(key, value, :yogo_settings_cache)
+      @@cache[key] = value
     end
   
     def self.store_database(key,value)
@@ -103,5 +86,39 @@ module Yogo
         record.save
       end
     end
+    
+    def self.setup
+      begin
+        self.reset_database! unless self.storage_exists?(:default)
+        self.reset_cache!
+        @@settings_setup = true
+      rescue
+        # NOOP!
+      end unless @@settings_setup
+    end
+    
+    def self.reset!
+      self.reset_database!
+      self.reset_cache!
+      @@settings_setup = true
+    end
+    
+    def self.reset_database!
+      self.auto_migrate!
+    end
+    
+    def self.reset_cache!
+      @@cache = {}
+      if @@settings_files.empty?
+        self.load_defaults(Dir.glob(Rails.root.to_s+"/vendor/gems/**/config/settings.yml"), # Gem settings
+                           Dir.glob(Rails.root.to_s+"/vendor/plugins/**/config/settings.yml"), # plugin settings
+                           Dir.glob(Rails.root.to_s+"/config/settings.yml") # App settings
+                          )
+      else 
+        self.load_defaults
+      end
+      self.all{|setting| store_cache(setting.name, setting.value)}
+    end
+    
   end  
 end
