@@ -17,12 +17,17 @@ To set value:
   
 will store the value.
 
-Default key/value are stored in YAML files located in a config/settings.yml file in installed plugins and vendored gems. These values may be overwritten by placing a settings.yml file in the applications config directory.
+Default key/value pairs are searched for in YAML files located in config/settings.yml files. 
+These files may be located in plugins, vendored gems and the applications. Configuration in the
+application takes precedence over plugins and gems.
+
+YAML files from custom locations may be added with the 'load_defaults' method.
+
+  Yogo::Settings.load_defaults(<path/to/yaml_file>)
 
 == INSTALL
 
 Install as a rails plugin.
-
 
 
 == RESOURCES
