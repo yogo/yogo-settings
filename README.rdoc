@@ -1,3 +1,7 @@
+= Outdated
+
+This code has been integrated into the Yogo project. See http://github.com/yogo/yogo for more information about Yogo
+
 = Yogo::Settings - A configuration module for use in the Yogo Toolkit
 
 == DESCRIPTION
